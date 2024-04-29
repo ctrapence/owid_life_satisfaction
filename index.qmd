@@ -1,0 +1,86 @@
+---
+title: "Self-reported life satisfaction, 2011 to 2022"
+format: html
+theme:  cosmo
+
+---
+
+```{r include = F}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+
+# Load packages 
+if(!require(pacman)) install.packages("pacman")
+pacman::p_load(plotly, tidyverse, reactable, here,janitor)
+```
+
+```{r}
+## Import data
+cantril <- 
+    read_csv(here("data/share-of-people-who-say-they-are-happy.csv")) %>% 
+  rename(Country = Entity) %>% 
+  clean_names()
+```
+
+“Please imagine a ladder, with steps numbered from 0 at the bottom to 10 at the top. The top of the ladder represents the best possible life for you and the bottom of the ladder represents the worst possible life for you. On which step of the ladder would you say you personally feel you stand at this time?”
+
+
+::: {.panel-tabset}
+
+
+## Table
+
+```{r}
+cantril_tbl<-cantril  %>% 
+  filter(!is.na(happiness_happy_aggregate)) %>% 
+  pivot_wider(names_from = year, values_from = happiness_happy_aggregate,id_cols = country)%>% 
+   select(country, "1984", "2022") %>% 
+   filter(!is.na(`1984`),!is.na(`2022`)) %>% 
+  mutate(`Absolute change` = round(`2022` - `1984`, 3)) %>% 
+  mutate(`Relative change` = (`2022` - `1984`) / `1984`) %>% 
+  reactable(
+    columns = list(`Relative change` = colDef(format = colFormat(percent = TRUE, digits = 1))) 
+  )
+cantril_tbl
+```
+
+##  Map
+
+```{r}
+map <- cantril %>% 
+  mutate(happiness_agg_sc = round(happiness_happy_aggregate, 2)) %>%
+  plot_geo(width = 940) %>% 
+  add_trace(
+    z = ~happiness_agg_sc,
+    color = ~happiness_agg_sc,
+      locations = ~code,
+    text = ~country,
+    frame = ~year, colors = "YlGn"
+  ) %>% 
+  colorbar(title = NULL)
+map
+```
+
+
+##   📈 Chart
+
+```{r}
+# simple line chart of the data, for five countries on different continents (ggplot, piped into ggplotly)
+
+cantril_chart <- 
+  cantril %>% 
+  filter(country %in% c("Canada", "Australia", "China", "Finland", "Malawi", "Argentina")) %>%
+   mutate(happiness_agg_sc = round(happiness_happy_aggregate, 2)) %>% 
+  ggplot(aes(x = year, y = happiness_happy_aggregate, color = country)) +
+  geom_line() +
+  scale_y_continuous(limits = c(0, 100)) +
+  labs(x = NULL,
+       y = NULL, 
+       color = NULL) +
+  theme_minimal() 
+
+ggplotly(cantril_chart, width = 940)
+```
+
+:::
+
+
